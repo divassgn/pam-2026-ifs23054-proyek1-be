@@ -1,0 +1,212 @@
+## Global Variabel
+@BaseUrl = http://localhost:8000
+
+### ---------------------------------------
+## Auth
+### ---------------------------------------
+
+### Melakukan pendaftaran
+# @name PostRegister
+POST {{BaseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Tester",
+  "username": "tester",
+  "password": "tester"
+}
+
+### Masuk ke layanan
+# @name PostLogin
+POST {{BaseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "tester",
+  "password": "tester"
+}
+
+> {%
+    client.global.set("authToken", response.body.data.authToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### Keluar dari layanan
+# @name PostLogout
+POST {{BaseUrl}}/auth/logout
+Content-Type: application/json
+
+{
+  "authToken": "{{authToken}}"
+}
+
+### Refresh token
+# @name PostRefreshToken
+POST {{BaseUrl}}/auth/refresh-token
+Content-Type: application/json
+
+{
+  "authToken": "{{authToken}}",
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+    client.global.set("authToken", response.body.data.authToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### ---------------------------------------
+## Users
+### ---------------------------------------
+
+### Mengambil informasi akun
+# @name GetUserMe
+GET {{BaseUrl}}/users/me
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+> {%
+    client.global.set("userId", response.body.data.user.id);
+%}
+
+### Mengubah informasi akun
+# @name PutUserMe
+PUT {{BaseUrl}}/users/me
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Tester Update",
+  "username": "tester"
+}
+
+### Mengubah kata sandi akun
+# @name PutUserMePassword
+PUT {{BaseUrl}}/users/me/password
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPassword": "tester",
+  "password": "tester"
+}
+
+### Mengubah foto profil
+# @name PutUserMePhoto
+PUT {{BaseUrl}}/users/me/photo
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./uploads/examples/me.png
+--WebAppBoundary--
+
+### Mengambil foto profil
+@userId = 00000000-0000-0000-0000-000000000000
+
+# @name GetMyPhoto
+GET {{BaseUrl}}/images/users/{{userId}}
+Authorization: Bearer {{authToken}}
+
+### ---------------------------------------
+## Products (Inventaris)
+### ---------------------------------------
+
+### Mengambil statistik inventaris (untuk Home)
+# @name GetProductStats
+GET {{BaseUrl}}/products/stats
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Mengambil semua produk (tanpa filter)
+# @name GetProducts
+GET {{BaseUrl}}/products?search=&page=1&perPage=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Mengambil produk dengan pencarian nama
+# @name GetProductsSearch
+GET {{BaseUrl}}/products?search=buku&page=1&perPage=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Mengambil produk dengan filter kategori
+# @name GetProductsByCategory
+GET {{BaseUrl}}/products?category=Elektronik&page=1&perPage=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Mengambil produk dengan stok rendah (stok <= minStock)
+# @name GetProductsLowStock
+GET {{BaseUrl}}/products?lowStock=true&page=1&perPage=10
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Menambahkan produk baru
+# @name PostProduct
+POST {{BaseUrl}}/products
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Laptop ASUS VivoBook",
+  "description": "Laptop untuk keperluan kantor",
+  "category": "Elektronik",
+  "unit": "pcs",
+  "price": 8500000,
+  "stock": 10,
+  "minStock": 2
+}
+
+> {%
+    client.global.set("productId", response.body.data.productId);
+%}
+
+### Mengambil produk berdasarkan id
+# @name GetProductById
+GET {{BaseUrl}}/products/{{productId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Mengubah data produk
+# @name PutProduct
+PUT {{BaseUrl}}/products/{{productId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Laptop ASUS VivoBook 14",
+  "description": "Laptop untuk keperluan kantor - updated",
+  "category": "Elektronik",
+  "unit": "pcs",
+  "price": 9000000,
+  "stock": 8,
+  "minStock": 2
+}
+
+### Mengubah gambar produk
+# @name PutProductImage
+PUT {{BaseUrl}}/products/{{productId}}/image
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./uploads/examples/me.png
+--WebAppBoundary--
+
+### Mengambil gambar produk
+# @name GetProductImage
+GET {{BaseUrl}}/images/products/{{productId}}
+Authorization: Bearer {{authToken}}
+
+### Menghapus produk
+# @name DeleteProduct
+DELETE {{BaseUrl}}/products/{{productId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
