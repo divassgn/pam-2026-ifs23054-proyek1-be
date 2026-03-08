@@ -9,6 +9,7 @@ import io.ktor.util.cio.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.delcom.data.ProductStatsResponse
 import org.delcom.data.AppException
 import org.delcom.data.DataResponse
 import org.delcom.data.ProductRequest
@@ -26,16 +27,13 @@ class ProductService(
 
     // GET /products?search=&page=&perPage=&category=&lowStock=true
     suspend fun getAll(call: ApplicationCall) {
-        val user = ServiceHelper.getAuthUser(call, userRepo)
-
+        val user     = ServiceHelper.getAuthUser(call, userRepo)
         val search   = call.request.queryParameters["search"] ?: ""
         val page     = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
         val perPage  = call.request.queryParameters["perPage"]?.toIntOrNull() ?: 10
         val category = call.request.queryParameters["category"]
         val lowStock = call.request.queryParameters["lowStock"]?.toBooleanStrictOrNull()
-
         val products = productRepo.getAll(user.id, search, page, perPage, category, lowStock)
-
         call.respond(DataResponse("success", "Berhasil mengambil daftar produk", mapOf("products" to products)))
     }
 
@@ -43,18 +41,20 @@ class ProductService(
     suspend fun getStats(call: ApplicationCall) {
         val user  = ServiceHelper.getAuthUser(call, userRepo)
         val stats = productRepo.getHomeStats(user.id)
-        call.respond(DataResponse("success", "Berhasil mengambil statistik inventaris", mapOf("stats" to stats)))
+        call.respond(DataResponse<ProductStatsResponse>(
+            status  = "success",
+            message = "Berhasil mengambil statistik inventaris",
+            data    = ProductStatsResponse(stats)
+        ))
     }
 
     // GET /products/{id}
     suspend fun getById(call: ApplicationCall) {
         val productId = call.parameters["id"] ?: throw AppException(400, "ID produk tidak valid!")
         val user      = ServiceHelper.getAuthUser(call, userRepo)
-
-        val product = productRepo.getById(productId)
+        val product   = productRepo.getById(productId)
         if (product == null || product.userId != user.id)
             throw AppException(404, "Produk tidak ditemukan!")
-
         call.respond(DataResponse("success", "Berhasil mengambil data produk", mapOf("product" to product)))
     }
 
@@ -63,14 +63,12 @@ class ProductService(
         val user    = ServiceHelper.getAuthUser(call, userRepo)
         val request = call.receive<ProductRequest>()
         request.userId = user.id
-
         val validator = ValidatorHelper(request.toMap())
         validator.required("name",        "Nama produk tidak boleh kosong")
         validator.required("description", "Deskripsi tidak boleh kosong")
         validator.required("category",    "Kategori tidak boleh kosong")
         validator.required("unit",        "Satuan tidak boleh kosong")
         validator.validate()
-
         val productId = productRepo.create(request.toEntity())
         call.respond(DataResponse("success", "Berhasil menambahkan produk", mapOf("productId" to productId)))
     }
@@ -81,44 +79,34 @@ class ProductService(
         val user      = ServiceHelper.getAuthUser(call, userRepo)
         val request   = call.receive<ProductRequest>()
         request.userId = user.id
-
         val validator = ValidatorHelper(request.toMap())
         validator.required("name",        "Nama produk tidak boleh kosong")
         validator.required("description", "Deskripsi tidak boleh kosong")
         validator.required("category",    "Kategori tidak boleh kosong")
         validator.required("unit",        "Satuan tidak boleh kosong")
         validator.validate()
-
         val old = productRepo.getById(productId)
         if (old == null || old.userId != user.id)
             throw AppException(404, "Produk tidak ditemukan!")
-
-        // Pertahankan gambar lama jika tidak diubah
         request.image = old.image
-
         val updated = productRepo.update(user.id, productId, request.toEntity())
         if (!updated) throw AppException(400, "Gagal memperbarui produk!")
-
         call.respond(DataResponse("success", "Berhasil memperbarui produk", null))
     }
 
-    // PUT /products/{id}/image  (multipart)
+    // PUT /products/{id}/image
     suspend fun putImage(call: ApplicationCall) {
         val productId = call.parameters["id"] ?: throw AppException(400, "ID produk tidak valid!")
         val user      = ServiceHelper.getAuthUser(call, userRepo)
-
-        val request = ProductRequest()
+        val request   = ProductRequest()
         request.userId = user.id
-
         val multipart = call.receiveMultipart(formFieldLimit = 1024 * 1024 * 5)
         multipart.forEachPart { part ->
             when (part) {
                 is PartData.FileItem -> {
-                    val ext      = part.originalFileName?.substringAfterLast('.', "")
-                        ?.let { if (it.isNotEmpty()) ".$it" else "" } ?: ""
+                    val ext      = part.originalFileName?.substringAfterLast('.', "")?.let { if (it.isNotEmpty()) ".$it" else "" } ?: ""
                     val fileName = UUID.randomUUID().toString() + ext
                     val filePath = "uploads/products/$fileName"
-
                     withContext(Dispatchers.IO) {
                         val file = File(filePath)
                         file.parentFile.mkdirs()
@@ -130,31 +118,16 @@ class ProductService(
             }
             part.dispose()
         }
-
-        if (request.image == null)
-            throw AppException(400, "Gambar produk tidak tersedia!")
-
+        if (request.image == null) throw AppException(400, "Gambar produk tidak tersedia!")
         val old = productRepo.getById(productId)
-        if (old == null || old.userId != user.id)
-            throw AppException(404, "Produk tidak ditemukan!")
-
-        // Salin field lain dari data lama
+        if (old == null || old.userId != user.id) throw AppException(404, "Produk tidak ditemukan!")
         request.apply {
-            name        = old.name
-            description = old.description
-            category    = old.category
-            unit        = old.unit
-            price       = old.price.toDouble()
-            stock       = old.stock
-            minStock    = old.minStock
+            name = old.name; description = old.description; category = old.category
+            unit = old.unit; price = old.price; stock = old.stock; minStock = old.minStock
         }
-
         val updated = productRepo.update(user.id, productId, request.toEntity())
         if (!updated) throw AppException(400, "Gagal memperbarui gambar produk!")
-
-        // Hapus gambar lama
         old.image?.let { File(it).takeIf { f -> f.exists() }?.delete() }
-
         call.respond(DataResponse("success", "Berhasil mengubah gambar produk", null))
     }
 
@@ -162,30 +135,21 @@ class ProductService(
     suspend fun delete(call: ApplicationCall) {
         val productId = call.parameters["id"] ?: throw AppException(400, "ID produk tidak valid!")
         val user      = ServiceHelper.getAuthUser(call, userRepo)
-
-        val old = productRepo.getById(productId)
-        if (old == null || old.userId != user.id)
-            throw AppException(404, "Produk tidak ditemukan!")
-
+        val old       = productRepo.getById(productId)
+        if (old == null || old.userId != user.id) throw AppException(404, "Produk tidak ditemukan!")
         val deleted = productRepo.delete(user.id, productId)
         if (!deleted) throw AppException(400, "Gagal menghapus produk!")
-
         old.image?.let { File(it).takeIf { f -> f.exists() }?.delete() }
-
         call.respond(DataResponse("success", "Berhasil menghapus produk", null))
     }
 
     // GET /images/products/{id}
     suspend fun getImage(call: ApplicationCall) {
         val productId = call.parameters["id"] ?: throw AppException(400, "ID produk tidak valid!")
-        val product   = productRepo.getById(productId)
-            ?: return call.respond(HttpStatusCode.NotFound)
-
+        val product   = productRepo.getById(productId) ?: return call.respond(HttpStatusCode.NotFound)
         if (product.image == null) throw AppException(404, "Produk belum memiliki gambar")
-
         val file = File(product.image!!)
         if (!file.exists()) throw AppException(404, "Gambar produk tidak tersedia")
-
         call.respondFile(file)
     }
 }
