@@ -31,15 +31,6 @@ Content-Type: application/json
     client.global.set("refreshToken", response.body.data.refreshToken);
 %}
 
-### Keluar dari layanan
-# @name PostLogout
-POST {{BaseUrl}}/auth/logout
-Content-Type: application/json
-
-{
-  "authToken": "{{authToken}}"
-}
-
 ### Refresh token
 # @name PostRefreshToken
 POST {{BaseUrl}}/auth/refresh-token
@@ -54,6 +45,15 @@ Content-Type: application/json
     client.global.set("authToken", response.body.data.authToken);
     client.global.set("refreshToken", response.body.data.refreshToken);
 %}
+
+### Keluar dari layanan
+# @name PostLogout
+POST {{BaseUrl}}/auth/logout
+Content-Type: application/json
+
+{
+  "authToken": "{{authToken}}"
+}
 
 ### ---------------------------------------
 ## Users
