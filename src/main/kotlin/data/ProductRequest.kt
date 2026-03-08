@@ -3,7 +3,6 @@ package org.delcom.data
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import org.delcom.entities.Product
-import java.math.BigDecimal
 
 @Serializable
 data class ProductRequest(
@@ -35,7 +34,7 @@ data class ProductRequest(
         description = description,
         category    = category,
         unit        = unit,
-        price       = BigDecimal.valueOf(price),
+        price       = price,        // langsung Double, tidak perlu BigDecimal.valueOf()
         stock       = stock,
         minStock    = minStock,
         image       = image,

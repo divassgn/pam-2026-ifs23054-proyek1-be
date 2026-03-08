@@ -4,7 +4,6 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
-import java.math.BigDecimal
 import java.util.UUID
 
 @Serializable
@@ -15,8 +14,7 @@ data class Product(
     var description : String,
     var category    : String,
     var unit        : String,
-    @Contextual
-    var price       : BigDecimal,
+    var price       : Double,       // BigDecimal → Double
     var stock       : Int = 0,
     var minStock    : Int = 0,
     var image       : String? = null,

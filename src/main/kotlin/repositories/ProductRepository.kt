@@ -10,11 +10,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.lowerCase
-import org.jetbrains.exposed.sql.LowerCase
-import org.jetbrains.exposed.sql.lowerCase
 import org.jetbrains.exposed.sql.Op
-import org.jetbrains.exposed.sql.andWhere
-import java.math.BigDecimal
 import java.util.UUID
 
 class ProductRepository : IProductRepository {
@@ -31,11 +27,10 @@ class ProductRepository : IProductRepository {
             ProductTable.userId eq UUID.fromString(userId)
         }
 
-        // Filter search by name
         if (search.isNotBlank()) {
             query = ProductDAO.find {
                 (ProductTable.userId eq UUID.fromString(userId)) and
-                (ProductTable.name.lowerCase() like "%${search.lowercase()}%")
+                        (ProductTable.name.lowerCase() like "%${search.lowercase()}%")
             }
         }
 
@@ -43,17 +38,14 @@ class ProductRepository : IProductRepository {
             .orderBy(ProductTable.createdAt to SortOrder.DESC)
             .map(::productDAOToModel)
 
-        // Filter category
         val filtered = if (!category.isNullOrBlank()) {
             allResults.filter { it.category.equals(category, ignoreCase = true) }
         } else allResults
 
-        // Filter low stock (stok <= minStock)
         val filteredStock = if (lowStock == true) {
             filtered.filter { it.stock <= it.minStock }
         } else filtered
 
-        // Pagination
         val offset = (page - 1) * perPage
         filteredStock.drop(offset).take(perPage)
     }
@@ -65,15 +57,14 @@ class ProductRepository : IProductRepository {
         val total      = products.size.toLong()
         val lowStock   = products.count { it.stock <= it.minStock }.toLong()
         val outOfStock = products.count { it.stock == 0 }.toLong()
-        val totalValue = products.fold(BigDecimal.ZERO) { acc, p ->
-            acc + p.price.multiply(BigDecimal(p.stock))
-        }
+        // Fix: gunakan Double bukan BigDecimal
+        val totalValue = products.fold(0.0) { acc, p -> acc + (p.price * p.stock) }
 
         mapOf(
             "total"      to total,
             "lowStock"   to lowStock,
             "outOfStock" to outOfStock,
-            "totalValue" to totalValue.toDouble()
+            "totalValue" to totalValue
         )
     }
 
@@ -92,7 +83,7 @@ class ProductRepository : IProductRepository {
             description = product.description
             category    = product.category
             unit        = product.unit
-            price       = product.price
+            price       = product.price.toBigDecimal()  // Double → BigDecimal untuk DB
             stock       = product.stock
             minStock    = product.minStock
             image       = product.image
@@ -106,7 +97,7 @@ class ProductRepository : IProductRepository {
         val dao = ProductDAO
             .find {
                 (ProductTable.id eq UUID.fromString(productId)) and
-                (ProductTable.userId eq UUID.fromString(userId))
+                        (ProductTable.userId eq UUID.fromString(userId))
             }
             .limit(1)
             .firstOrNull()
@@ -116,7 +107,7 @@ class ProductRepository : IProductRepository {
             dao.description = newProduct.description
             dao.category    = newProduct.category
             dao.unit        = newProduct.unit
-            dao.price       = newProduct.price
+            dao.price       = newProduct.price.toBigDecimal()  // Double → BigDecimal untuk DB
             dao.stock       = newProduct.stock
             dao.minStock    = newProduct.minStock
             dao.image       = newProduct.image
@@ -128,7 +119,7 @@ class ProductRepository : IProductRepository {
     override suspend fun delete(userId: String, productId: String): Boolean = suspendTransaction {
         val rows = ProductTable.deleteWhere {
             (ProductTable.id eq UUID.fromString(productId)) and
-            (ProductTable.userId eq UUID.fromString(userId))
+                    (ProductTable.userId eq UUID.fromString(userId))
         }
         rows >= 1
     }
