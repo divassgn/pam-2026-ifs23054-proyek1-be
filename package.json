@@ -1,0 +1,13 @@
+{
+  "name": "pam-2026-ifs23054-proyek1-be",
+  "version": "1.0.0",
+  "description": "Backend Proyek 1 PAM 2026 - Stokku Inventory Management",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo \"Ktor backend - run with ./gradlew run\"",
+    "test": "echo \"Tests run via Ktor HTTP client\""
+  },
+  "keywords": ["ktor", "kotlin", "inventory", "backend"],
+  "author": "Sri Diva Siagian",
+  "license": "ISC"
+}
